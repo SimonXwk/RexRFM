@@ -1,7 +1,6 @@
 import os
 import glob
 import datetime
-import re
 import pandas as pd
 
 
@@ -13,6 +12,12 @@ def get_csv_folder():
 
 
 def get_csv_mask_in_folder(folder):
+    """
+    :param folder: folder full path where the csv files will be matched by file name mask
+    :return: String(mask) the describes what the file name looks like
+    """
+    # Mask structure: (REX)_(system report start date)_(system report end date)_(NOW)_now date you defined_(R highest score),(F highest score),(M highest score).csv
+    # Date format in file name : '%Y%m%d'
     filename_pattern = '_'.join(['REX', '[0-9][0-9][0-9][0-9][0-1][0-9][0-3][0-9]', '[0-9][0-9][0-9][0-9][0-1][0-9][0-3][0-9]',
                                  'NOW', '[0-9][0-9][0-9][0-9][0-1][0-9][0-3][0-9]',
                                  '[1-9],[1-9],[1-9]'])
@@ -23,20 +28,25 @@ def get_merged_csv_raw(file_list, **kwargs):
     return pd.concat([pd.read_csv(f, **kwargs) for f in file_list], axis=0, ignore_index=True)  # Merge from Top-Down(axis0) and ignore indexes when merging
 
 
-def rfm_asc_classification(value, buckets, q_dict):
+def rfm_calculate_score(value, buckets, q_dict, type='asc'):
     """
     :param value: a value to be rendered into RFM score
     :param buckets: quantile definition, a list of unique elements that are in range [0,1] in ascending order
-    :param q_dict: quantile calculation by using buckets above, a dictionary of the percentiles by the bucket defined in buckets above
-    :return: calculated RFM score, 1 is the worst and len(buckets)+1 is the best
+    :param q_dict: quantile calculation by using buckets above, a dictionary of keys of the percentages  in buckets above and values of calculated values percentiles
+    :return: calculated RFM score, 1 is the worst and len(buckets)+1 is the best (ASC), 1 is the best and len(buckets)+1 is worst (DESC)
     """
-    for key, bucket in enumerate(buckets):
-        if value > q_dict[buckets[-1]]:
-            # print(value, bucket, q_dict[bucket], len(buckets)+1)
-            return len(buckets)+1
-        elif value <= q_dict[bucket]:
-            # print(value, bucket, q_dict[bucket], key + 1)
-            return key + 1
+    if str(type).upper() == 'ASC':
+        for key, bucket in enumerate(buckets):
+            if value > q_dict[buckets[-1]]:
+                return len(buckets)+1  # Bigger than the highest percentile : highest score
+            elif value <= q_dict[bucket]:
+                return key + 1  # Checking from lowest to highest, give score on the first match
+    elif str(type).upper() == 'DESC':
+        for key, bucket in enumerate(reversed(buckets)):
+            if value < q_dict[buckets[-1]]:
+                return len(buckets) + 1  # Smaller than the highest percentile : highest score
+            elif value >= q_dict[bucket]:
+                return key + 1  # Checking from highest to lowest, give score on the first match
 
 
 def rfm_analysis():
@@ -54,9 +64,8 @@ def rfm_analysis():
         file_path, file_extension = os.path.splitext(f)
         filename = file_path.split('\\')[-1]
         filename_item = filename.split('_')  # File Name Split Array
-        rfm_now = datetime.datetime.strptime(str(filename_item[-2]), '%Y%m%d')
-        highest_score_r, highest_score_f, highest_score_m = map(int,filename_item[-1].split(','))
-        print(highest_score_r, highest_score_f, highest_score_m)
+        rfm_now = datetime.datetime.strptime(str(filename_item[-2]), '%Y%m%d')  # Second last part of file name is Now date
+        highest_score_r, highest_score_f, highest_score_m = map(int, filename_item[-1].split(','))  # Second last part of file name is RFM highest scores separated by ,
 
         # Keep the columns that are essential to RFM analysis
         raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net = 'CustomerNumber', 'Date Created', 'OrderNumber', 'Sale Price Ext'
@@ -97,15 +106,14 @@ def rfm_analysis():
         print('\nquantiles R:\n{}\nquantiles F:\n{}\nquantiles M:\n{}'.format(quantiles_r, quantiles_f, quantiles_m))
 
         # Apply quantiles to RFM data set
-        # rfm['r_score'] = rfm['recency'].apply(rfm_asc_classification, args=())
-        rfm['r_score'] = rfm['recency'].apply(rfm_asc_classification, args=(buckets_r, quantiles_r))
-        rfm['f_score'] = rfm['frequency'].apply(rfm_asc_classification, args=(buckets_f, quantiles_f))
-        rfm['m_score'] = rfm['monetary_value'].apply(rfm_asc_classification, args=(buckets_m, quantiles_m))
+        rfm['r_score'] = rfm['recency'].apply(rfm_calculate_score, args=(buckets_r, quantiles_r, 'asc'))
+        rfm['f_score'] = rfm['frequency'].apply(rfm_calculate_score, args=(buckets_f, quantiles_f, 'asc'))
+        rfm['m_score'] = rfm['monetary_value'].apply(rfm_calculate_score, args=(buckets_m, quantiles_m, 'asc'))
 
         # Save RFM data set
         rfm.to_csv(os.path.join(get_csv_folder(), '_'.join([filename, 'rfmTable']) + '.csv'), encoding='utf-8-sig')
 
-    print('\nDone! Please check results in folder : {}'.format(os.path.join(os.getcwd(), get_csv_folder())))
+    print('\nRFM calculation finished, check results in folder : {}'.format(os.path.join(os.getcwd(), get_csv_folder())))
 
 
 if __name__ == '__main__':
