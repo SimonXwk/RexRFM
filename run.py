@@ -5,6 +5,8 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+import segment as seg
+
 
 def get_csv_folder():
     csv_folder = "csv"
@@ -35,6 +37,7 @@ def rfm_calculate_score(value, buckets, q_dict, sort_type='asc'):
     :param value: a value to be rendered into RFM score
     :param buckets: quantile definition, a list of unique elements that are in range [0,1] in ascending order
     :param q_dict: quantile calculation by using buckets above, a dictionary of keys of the percentages  in buckets above and values of calculated values percentiles
+    :param sort_type:
     :return: calculated RFM score, 1 is the worst and len(buckets)+1 is the best (ASC), 1 is the best and len(buckets)+1 is worst (DESC)
     """
     if str(sort_type).upper() == 'ASC':
@@ -51,34 +54,6 @@ def rfm_calculate_score(value, buckets, q_dict, sort_type='asc'):
                 return key + 1  # Checking from highest to lowest, give score on the first match
 
 
-def rfm_segment(rlist, fmlist):
-    segment = []
-    for x in range(len(rlist)):
-        if 4 <= rlist[x] <= 5 and 4 <= fmlist[x] <= 5:
-            segment.append('Champions')
-        elif 2 <= rlist[x] <= 5 and 3 <= fmlist[x] <= 5:
-            segment.append('Loyal Customers')
-        elif 3 <= rlist[x] <= 5 and 1 <= fmlist[x] <= 5:
-            segment.append('Potential Loyalist')
-        elif 4 <= rlist[x] <= 5 and 0 <= fmlist[x] <= 1:
-            segment.append('Recent Customers')
-        elif 3 <= rlist[x] <= 4 and 0 <= fmlist[x] <= 1:
-            segment.append('Promising')
-        elif 2 <= rlist[x] <= 3 and 2 <= fmlist[x] <= 3:
-            segment.append('Customers Needing Attention')
-        elif 2 <= rlist[x] <= 3 and 0 <= fmlist[x] <= 2:
-            segment.append('About To Sleep')
-        elif 0 <= rlist[x] <= 2 and 2 <= fmlist[x] <= 5:
-            segment.append('At Risk')
-        elif 0 <= rlist[x] <= 1 and 4 <= fmlist[x] <= 5:
-            segment.append('Can’t Lose Them')
-        elif 1 <= rlist[x] <= 2 and 1 <= fmlist[x] <= 2:
-            segment.append('Hibernating')
-        elif 0 <= rlist[x] <= 2 and 0 <= fmlist[x] <= 2:
-            segment.append('Lost')
-    return segment
-
-
 def rfm_analysis():
 
     # Find out which csv files to be collected, returning a list of file names
@@ -86,20 +61,14 @@ def rfm_analysis():
     print('Number of files to be collected : {}\n{}'.format(len(file_list), file_list))
 
     for f in file_list:
-        # Collect information from each file and create Pandas DataFrame
-        raw = pd.read_csv(f, index_col=None, low_memory=False) # If file contains no header row, then you should explicitly pass header=None
-        print('\nRaw Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
-
-        # Collect the 'NOW' date for RFM analysis from the file name
-        file_path, file_extension = os.path.splitext(f)
-        filename = file_path.split('\\')[-1]
-        filename_item = filename.split('_')  # File Name Split Array
-        rfm_now = datetime.datetime.strptime(str(filename_item[-2]), '%Y%m%d')  # Second last part of file name is Now date
-        highest_score_r, highest_score_f, highest_score_m = map(int, filename_item[-1].split(','))  # Second last part of file name is RFM highest scores separated by ,
-
         # Keep the columns that are essential to RFM analysis
         raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net = 'CustomerNumber', 'Date Created', 'OrderNumber', 'Sale Price Ext'
-        raw = raw.loc[:, [raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net]]
+        raw_header = [raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net]
+
+        # Collect information from each file and create Pandas DataFrame
+        # If file contains no header row, then you should explicitly pass header=None
+        raw = pd.read_csv(f, index_col=None, low_memory=False, usecols=raw_header)
+        print('\nRaw Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
 
         # Cleaning and reformatting raw data
         # Series.astype would not convert things that can not be converted to while pandas.to_datetime(Series) can (NaN).
@@ -109,27 +78,34 @@ def rfm_analysis():
         raw[raw_header_order_id] = raw[raw_header_order_id].str.strip()  # Trimming
         print('\nNew Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
 
+        # Collect the 'NOW' date for RFM analysis from the file name
+        file_path, file_extension = os.path.splitext(f)
+        filename = file_path.split('\\')[-1]
+        filename_item = filename.split('_')  # File Name Split Array
+        rfm_now = datetime.datetime.strptime(str(filename_item[-2]), '%Y%m%d')  # Second last part of file name is Now date
+        highest_score_r, highest_score_f, highest_score_m = map(int, filename_item[-1].split(','))  # Second last part of file name is RFM highest scores separated by ,
+
         # Creating RFM data set
         recency_max = (rfm_now - raw[raw_header_customer_date].min()).days
         rfm = raw.groupby(raw_header_customer_id).agg(
             {
                 raw_header_customer_date: lambda x: recency_max - (rfm_now - x.max()).days + 1,
-                raw_header_order_id: 'count',
+                raw_header_order_id: 'nunique',
                 raw_header_net: 'sum',
             }
         )
         rfm.rename(columns={raw_header_customer_date: 'recency', raw_header_order_id: 'frequency', raw_header_net: 'monetary_value'}, inplace=True)
         print('\nRFM Data Descriptive Statistics :\nAssuming NOW refers to {}\n{}'.format(rfm_now, rfm.describe()))
-        rfm = rfm.loc[ rfm['frequency'] < 120, :]
+        # rfm = rfm.loc[rfm['frequency'] < 120, :]
 
         rfm['last_trx'] = raw.groupby(raw_header_customer_id)[raw_header_customer_date].max()
         rfm['now'] = pd.to_datetime(rfm_now)
         print('\nRFM Data Format : {}\n{}'.format(rfm.shape, rfm.dtypes))
 
         # Calculate quantile
-        buckets_r = [float((x+1)/highest_score_r) for x in range(highest_score_r-1)]
-        buckets_f = [float((x+1)/highest_score_f) for x in range(highest_score_f-1)]
-        buckets_m = [float((x+1)/highest_score_m) for x in range(highest_score_m-1)]
+        buckets_r = [float(x/highest_score_r) for x in range(1, highest_score_r)]
+        buckets_f = [float(x/highest_score_f) for x in range(1, highest_score_f)]
+        buckets_m = [float(x/highest_score_m) for x in range(1, highest_score_m)]
 
         quantiles_r = rfm['recency'].quantile(q=buckets_r).to_dict()
         quantiles_f = rfm['frequency'].quantile(q=buckets_f).to_dict()
@@ -140,27 +116,84 @@ def rfm_analysis():
         rfm['r_score'] = rfm['recency'].apply(rfm_calculate_score, args=(buckets_r, quantiles_r, 'asc'))
         rfm['f_score'] = rfm['frequency'].apply(rfm_calculate_score, args=(buckets_f, quantiles_f, 'asc'))
         rfm['m_score'] = rfm['monetary_value'].apply(rfm_calculate_score, args=(buckets_m, quantiles_m, 'asc'))
+
         rfm['fm_score'] = (rfm['f_score'] + rfm['m_score'])/2
-        rfm['Segment'] = rfm_segment(rfm.loc[:, 'r_score'].values.T.tolist(), rfm.loc[:, 'fm_score'].values.T.tolist())
+
+        # Calculate Segments
+        # segment = seg.rfm_segment_1
+        # rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(segment, axis=1)
+
+        rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(lambda x: seg.RFM(x).segment1, axis=1)
 
         # Save RFM data set
         rfm.to_csv(os.path.join(get_csv_folder(), '_'.join([filename, 'rfmTable']) + '.csv'), encoding='utf-8-sig')
 
         # Plot R , F scatter chart
-        # fig = plt.figure()
-        # grid = mpl.gridspec.GridSpec(nrows=2, ncols=2, width_ratios=[1, 1], height_ratios=[1, 1])
-        # ax1 = fig.add_subplot(grid[:, 1])
-        #
-        # fig.tight_layout()
-        # fig.canvas.set_window_title('RFM')
-        #
-        # series1 = rfm.Series(index=rfm['r_score'].values, data=rfm['fm_score'].values)
-        # ax1.scatter(series1.index, series1.values, 'b-o', alpha=0.3, edgecolors='none')
-        # ax1.set(xlabel='recency', ylabel='frequency/monetary_value', title='R - FM Chart'.format(len(series1.index)))
-        # ax1.grid()
-        #
-        # plt.style.use('ggplot')
-        # plt.show()
+        fig = plt.figure()
+        grid = mpl.gridspec.GridSpec(nrows=2, ncols=2, width_ratios=[2, 2], height_ratios=[2, 2])
+        ax1 = fig.add_subplot(grid[0, 0])
+        ax2 = fig.add_subplot(grid[1, 0])
+        ax3 = fig.add_subplot(grid[0, 1])
+        ax4 = fig.add_subplot(grid[1, 1])
+
+        fig.tight_layout()
+        fig.canvas.set_window_title('RFM ANALYSIS')
+
+
+
+        series1 = {
+            'x': {
+                'label': 'frequency',
+                'values': rfm['frequency'].values
+            },
+            'y': {
+                'label': 'monetary_value',
+                'color': 'skyblue',
+                'values': rfm['monetary_value'].values
+            },
+        }
+        ax2.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
+        ax2.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax2.grid()
+
+        series1 = {
+            'x': {
+                'label': 'recency',
+                'values': rfm['recency'].values
+            },
+            'y': {
+                'label': 'monetary_value',
+                'color': 'limegreen',
+                'values': rfm['monetary_value'].values
+            },
+        }
+        ax3.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
+        ax3.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax3.grid()
+
+        series1 = {
+            'x': {
+                'label': 'recency',
+                'values': rfm['recency'].values
+            },
+            'y': {
+                'label': 'frequency',
+                'color': 'darkorchid',
+                'values': rfm['frequency'].values
+            },
+        }
+        ax4.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
+        ax4.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax4.grid()
+
+
+        # series1 = {'x': rfm['fm_score'].values, 'y': rfm['r_score'].values}
+        # y = rfm['fm'].values
+        # x = rfm['recency'].values
+        # plt.scatter(x, y)
+
+        plt.style.use('ggplot')
+        plt.show()
 
     print('\nRFM calculation finished, check results in folder : {}'.format(os.path.join(os.getcwd(), get_csv_folder())))
 
