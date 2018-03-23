@@ -1,11 +1,12 @@
 import os
 import glob
 import datetime
+import re
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-import segment as seg
+from segment import RFMScores, rfm_segment_1
 
 
 def get_csv_folder():
@@ -67,15 +68,20 @@ def rfm_analysis():
 
         # Collect information from each file and create Pandas DataFrame
         # If file contains no header row, then you should explicitly pass header=None
-        raw = pd.read_csv(f, index_col=None, low_memory=False, usecols=raw_header)
+        raw = pd.read_csv(f, index_col=None, low_memory=False, usecols=raw_header + ['Product Type', 'Description'])
+
+        # We want only the coffee buyers
+        # raw['Coffee'] = raw['Description Type'] = 'Food & Beverages' and raw['Description Type'].str.contain('Food & Beverages', flags=re.IGNORECASE, regex=True)
+        # print(raw)
+
+        raw = raw.loc[:, raw_header]
         print('\nRaw Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
 
         # Cleaning and reformatting raw data
         # Series.astype would not convert things that can not be converted to while pandas.to_datetime(Series) can (NaN).
+        raw[raw.select_dtypes(['object']).columns] = raw.select_dtypes(['object']).apply(lambda x: x.str.strip()) # Trimming String columns
         raw[raw_header_customer_date] = pd.to_datetime(raw[raw_header_customer_date], format='%d/%m/%Y %H:%M:%S %p')  # Convert to datetime value
         raw[raw_header_net] = pd.to_numeric(raw[raw_header_net]).astype('float').fillna(0)  # Convert to numeric value, format to float and fill na with zero
-        raw[raw_header_customer_id] = raw[raw_header_customer_id].str.strip()  # Trimming
-        raw[raw_header_order_id] = raw[raw_header_order_id].str.strip()  # Trimming
         print('\nNew Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
 
         # Collect the 'NOW' date for RFM analysis from the file name
@@ -123,7 +129,8 @@ def rfm_analysis():
         # segment = seg.rfm_segment_1
         # rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(segment, axis=1)
 
-        rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(lambda x: seg.RFM(x).segment1, axis=1)
+        rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(lambda x: rfm_segment_1(x), axis=1)
+        print(rfm.groupby('Segment').agg({'Segment': 'size'}).iloc[:, 0].values)
 
         # Save RFM data set
         rfm.to_csv(os.path.join(get_csv_folder(), '_'.join([filename, 'rfmTable']) + '.csv'), encoding='utf-8-sig')
@@ -139,7 +146,21 @@ def rfm_analysis():
         fig.tight_layout()
         fig.canvas.set_window_title('RFM ANALYSIS')
 
+        series1 = {
+            'x': {
+                'label': 'Segment',
+                'values': rfm.groupby('Segment').agg({'Segment': 'size'}).index.values
+            },
+            'y': {
+                'label': 'No.Customer',
+                'color': 'indianred',
+                'values': rfm.groupby('Segment').agg({'Segment': 'size'}).iloc[:, 0].values
+            },
+        }
 
+        ax1.bar(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
+        ax1.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='Segments'.format(len(series1['x']['values'])))
+        plt.setp(ax1.xaxis.get_majorticklabels(), rotation=20)
 
         series1 = {
             'x': {
@@ -153,7 +174,7 @@ def rfm_analysis():
             },
         }
         ax2.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
-        ax2.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax2.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='F - M Chart'.format(len(series1['x']['values'])))
         ax2.grid()
 
         series1 = {
@@ -168,7 +189,7 @@ def rfm_analysis():
             },
         }
         ax3.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
-        ax3.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax3.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - M Chart'.format(len(series1['x']['values'])))
         ax3.grid()
 
         series1 = {
@@ -183,7 +204,7 @@ def rfm_analysis():
             },
         }
         ax4.scatter(series1['x']['values'], series1['y']['values'], color=series1['y']['color'])
-        ax4.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - FM Chart'.format(len(series1['x']['values'])))
+        ax4.set(xlabel=series1['x']['label'], ylabel=series1['y']['label'], title='R - F Chart'.format(len(series1['x']['values'])))
         ax4.grid()
 
 
