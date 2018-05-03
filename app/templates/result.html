@@ -1,0 +1,22 @@
+{% extends '_base.html' %}
+{%- block title %}One Picture{%- endblock %}
+
+{% block js_custom %}
+<script src="{{ url_for('static', filename='js/result.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+{% if filename %}
+
+<div class="alert alert-success" role="alert">{{ filename }} Processed Successfully !</div>
+{% else  %}
+
+<div class="alert alert-primary" role="alert">Showing All Results</div>
+{% endif %}
+</div>
+
+{{ data }}
+
+
+{% endblock %}

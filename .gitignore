@@ -1,5 +1,15 @@
-.idea/
+# Byte-compiled / optimized / DLL files
+*.py[cod]
 __pycache__/
+
+# Distribution / packaging
 env/
-csv/*rfm*.csv
-*.pyc
+node_modules/
+
+
+# Editor / Os
+.idea/
+
+# App
+instance/*.*
+csv/*.*
