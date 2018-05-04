@@ -1,0 +1,55 @@
+<main role="main" class="container">
+
+	<blockquote class="blockquote">
+		<p class="mb-0">RETAIL EXPRESS RFM ANALYSIS</p>
+		<footer class="blockquote-footer">for merchandise</footer>
+	</blockquote>
+
+	<form method="post"  enctype="multipart/form-data" class="form-inline">
+		<div class="input-group mb-4">
+			<div class="input-group-prepend">
+				<button class="btn btn-outline-secondary" type="submit">UPLOAD</button>
+			</div>
+			<div class="custom-file">
+				<!--<input type="file" name="file" class="form-control" id="exampleFormControlInput1">-->
+				<input type="file" name="file" class="custom-file-input" id="browseFile1">
+				<label class="custom-file-label" for="browseFile1"><small>choose a file</small></label>
+			</div>
+		</div>
+	</form>
+
+	<hr />
+
+	<div class="list-group">
+	{% with messages = get_flashed_messages(with_categories=true) %}
+	{% if messages %}
+		{% for category, message in messages %}
+			{% if category == 'error' %}
+		<div class="alert alert-danger" role="alert">{{ message }}</div>
+			{% elif category == 'warning' %}
+			<div class="alert alert-warning" role="alert">{{ message }}</div>
+			{% elif category == 'success' %}
+			<div class="alert alert-success" role="alert">{{ message }}</div>
+			{% else  %}
+			<div class="alert alert-secondary" role="alert">{{ message }}</div>
+			{% endif %}
+		{% endfor %}
+	{% endif %}
+	{% endwith %}
+	</div>
+
+	<div class="alert alert-dark" role="alert">VALID EXISTING UPLOADS : {{ files|length }} </div>
+	<div class="list-group">
+		{% if files %}
+		{% for file in files %}
+		<a href="{{ url_for('show_rfm_single', filename= file | fname) }}" class="list-group-item list-group-item-action">
+			<small >
+				<span class="badge badge-info badge-pill">{{ loop.index }}</span>
+				{{ file | fname }}
+			</small>
+		</a >
+		{% endfor %}
+		{% endif %}
+	</div>
+
+</main>

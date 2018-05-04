@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 from flask import current_app
 
-from app.rfm_segment import rfm_segment_2 as rfm_segment
+from app.rfm_segment import Segment2 as Segment
 
 
 def get_csv_folder():
@@ -35,6 +35,10 @@ def get_merged_csv_raw(file_list, **kwargs):
 	return pd.concat([pd.read_csv(f, **kwargs) for f in file_list], axis=0, ignore_index=True)  # Merge from Top-Down(axis0) and ignore indexes when merging
 
 
+def list_all_files():
+	return glob.glob(get_csv_mask_in_folder(get_csv_folder()))
+
+
 def rfm_calculate_score(value, buckets, q_dict, sort_type='asc'):
 	"""
 	:param value: a value to be rendered into RFM score
@@ -57,42 +61,46 @@ def rfm_calculate_score(value, buckets, q_dict, sort_type='asc'):
 				return key + 1  # Checking from highest to lowest, give score on the first match
 
 
-def file_all_files():
-	return glob.glob(get_csv_mask_in_folder(get_csv_folder()))
-
-
 def rfm_analysis(file_name=None):
 	if file_name:
 		file_list = [os.path.join(get_csv_folder(), file_name)]
 		print('Analysing File {}'.format(file_name))
 	else:
 		# Find out which csv files to be collected, returning a list of file names
-		file_list = file_all_files()
+		file_list = list_all_files()
 		print('Number of files to be collected : {}\n{}'.format(len(file_list), file_list))
 
 	sep1 = current_app.config['RFM_SECTOR_SEP']
 	sep2 = current_app.config['RFM_SCORE_SEP']
-	data = {}
+	data = {}  # A dictionary that will hold all data
 
-	for fid, f in enumerate(file_list):
+	for f in file_list:
 		# Collect the 'NOW' date for RFM analysis from the file name
-		file_path, file_extension = os.path.splitext(f)
-		filename = file_path.split('\\')[-1]  # Get rid of containing folders
+		file_path_exc_extension, file_extension = os.path.splitext(f)
+		folder, filename = file_path_exc_extension.rsplit('\\', 1)
 
 		# Interpreting the special file naming structure
-		filename_item = filename.split(sep1)  # File Name Split Array
-		rfm_now = datetime.datetime.strptime(str(filename_item[-2]), '%Y%m%d')  # Second last part of file name is Now date
-		highest_score_r, highest_score_f, highest_score_m = map(int, filename_item[-1].split(sep2))  # Second last part of file name is RFM highest scores separated by ,
+		fs = {
+			'format': file_extension,
+			'folder': folder,
+			'filename': filename,
+			'start': datetime.datetime.strptime(filename.split(sep1)[1], '%Y%m%d'),
+			'end': datetime.datetime.strptime(filename.split(sep1)[2], '%Y%m%d'),
+			'now': datetime.datetime.strptime(filename.split(sep1)[4], '%Y%m%d'),
+			'r_score_max': int(filename.split(sep1)[5].split(sep2)[0]),
+			'f_score_max': int(filename.split(sep1)[5].split(sep2)[1]),
+			'm_score_max': int(filename.split(sep1)[5].split(sep2)[2]),
+		}
 
 		# Keep the columns that are essential to RFM analysis
 		raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net = \
 			'CustomerNumber', 'Date Created', 'OrderNumber', 'Sale Price Ext'
 		basic_header = [raw_header_customer_id, raw_header_customer_date, raw_header_order_id, raw_header_net]
-		addition_header = ['Product Type', 'Description']
+		additional_header = ['Product Type', 'Description']
 
 		# Collect information from each file and create Pandas DataFrame
 		# If file contains no header row, then you should explicitly pass header=None
-		raw = pd.read_csv(f, index_col=None, low_memory=False, usecols=basic_header + addition_header)
+		raw = pd.read_csv(f, index_col=None, low_memory=False, usecols=basic_header + additional_header)
 
 		# We want only the coffee buyers
 		# raw['Coffee'] = raw['Description Type'] = 'Food & Beverages' and raw['Description Type'].str.contain('Food & Beverages', flags=re.IGNORECASE, regex=True)
@@ -109,10 +117,10 @@ def rfm_analysis(file_name=None):
 		# print('\nNew Data Format : {}\n{}'.format(raw.shape, raw.dtypes))
 
 		# Creating RFM data set
-		recency_max = (rfm_now - raw[raw_header_customer_date].min()).days  # <class 'datetime.datetime'> - <class 'pandas._libs.tslib.Timestamp'> gives <class 'pandas._libs.tslib.Timedelta'>
+		recency_max = (fs['now'] - raw[raw_header_customer_date].min()).days  # <class 'datetime.datetime'> - <class 'pandas._libs.tslib.Timestamp'> gives <class 'pandas._libs.tslib.Timedelta'>
 		rfm = raw.groupby(raw_header_customer_id).agg(
 			{
-				raw_header_customer_date: lambda x: recency_max - (rfm_now - x.max()).days + 1,
+				raw_header_customer_date: lambda x: recency_max - (fs['now'] - x.max()).days + 1,
 				raw_header_order_id: 'nunique',
 				raw_header_net: 'sum',
 			}
@@ -122,13 +130,13 @@ def rfm_analysis(file_name=None):
 		# rfm = rfm.loc[rfm['frequency'] < 120, :]
 
 		rfm['last_trx'] = raw.groupby(raw_header_customer_id)[raw_header_customer_date].max()
-		rfm['now'] = pd.to_datetime(rfm_now)
+		rfm['now'] = pd.to_datetime(fs['now'])
 		# print('\nRFM Data Format : {}\n{}'.format(rfm.shape, rfm.dtypes))
 
 		# Calculate quantile
-		buckets_r = [float(x / highest_score_r) for x in range(1, highest_score_r)]
-		buckets_f = [float(x / highest_score_f) for x in range(1, highest_score_f)]
-		buckets_m = [float(x / highest_score_m) for x in range(1, highest_score_m)]
+		buckets_r = [float(x / fs['r_score_max']) for x in range(1, fs['r_score_max'])]
+		buckets_f = [float(x / fs['f_score_max']) for x in range(1, fs['f_score_max'])]
+		buckets_m = [float(x / fs['m_score_max']) for x in range(1, fs['m_score_max'])]
 
 		quantiles_r = rfm['recency'].quantile(q=buckets_r).to_dict()
 		quantiles_f = rfm['frequency'].quantile(q=buckets_f).to_dict()
@@ -144,14 +152,18 @@ def rfm_analysis(file_name=None):
 		# segment = seg.rfm_segment_1
 		# rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(segment, axis=1)
 
-		rfm['Segment'] = rfm.loc[:, ['recency', 'frequency', 'monetary_value']].apply(lambda x: rfm_segment(x), axis=1)
+		rfm['Segment'] = rfm.loc[:, ['recency', 'frequency', 'monetary_value']].apply(lambda x: Segment.calc(x), axis=1)
 		# rfm['Segment'] = rfm.loc[:, ['r_score', 'f_score', 'm_score']].apply(lambda x: rfm_segment(x), axis=1)
 
-		# Save RFM data set
-		# rfm.to_csv(os.path.join(get_csv_folder(), '_'.join([filename, 'rfmTable']) + '.csv'), encoding='utf-8-sig')
+		seg_dict = rfm['Segment'].value_counts().to_dict()
+		seg_data = dict(segment=list(seg_dict.keys()), count=list(seg_dict.values()))
+		if file_name:
+			data = seg_data
+		else:
+			seg_dict = rfm['Segment'].value_counts().to_dict()
+			seg_data = dict(segment=list(seg_dict.keys()), count=list(seg_dict.values()))
+			data[fs['filename']] = seg_data
 		# print(rfm['Segment'])
-		data[str(fid)] = rfm['Segment']
-
 
 	print('\nRFM calculation finished, check results in folder : {}'.format(os.path.join(os.getcwd(), get_csv_folder())))
 	return data

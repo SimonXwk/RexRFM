@@ -1,0 +1,12 @@
+<div class="container-fluid">
+	{% if filename %}
+	<div class="alert alert-success" role="alert">{{ filename }} Processed Successfully !</div>
+	{% else  %}
+	<div class="alert alert-primary" role="alert">Showing All Results</div>
+	{% endif %}
+
+	<div id="segChart" style="width: 600px;height:400px;"></div>
+
+</div>
+
+{{ data }}

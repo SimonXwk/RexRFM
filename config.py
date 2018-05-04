@@ -1,6 +1,3 @@
-import os
-
-
 # Default Configuration (inheriting from object is not necessary in python3)
 class BaseConfig(object):
 	""" Builtin Value Configurations
@@ -27,7 +24,7 @@ class BaseConfig(object):
 class CustomConfig(BaseConfig):
 	""" Configurations only apply to this application
 	"""
-	UPLOAD_FOLDER = 'csv'
+	UPLOAD_FOLDER = '//192.168.0.21/Merchandising/RFM/DATA'
 	ALLOWED_EXTENSIONS = {'csv', 'tsv'}
 	RFM_SECTOR_SEP = '_'
 	RFM_SCORE_SEP = '-'

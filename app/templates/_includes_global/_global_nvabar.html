@@ -1,14 +1,14 @@
 <header>
 	<!-- Fixed navbar -->
 	<nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-		<a class="navbar-brand" href="/">UPLOAD</a>
+		<a class="navbar-brand" href="{{ url_for('upload') }}">UPLOAD</a>
 		<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
 			<span class="navbar-toggler-icon"></span>
 		</button>
 		<div class="collapse navbar-collapse" id="navbarCollapse">
 			<ul class="navbar-nav mr-auto">
 				<li class="nav-item"> {# add class active here #}
-					<a class="nav-link" href="{{ url_for('show_result_all') }}">ANALYSE <span class="sr-only">(current)</span></a>
+					<a class="nav-link" href="{{ url_for('show_rfm_all') }}">ANALYSE <span class="sr-only">(current)</span></a>
 				</li>
 			</ul>
 			<form class="form-inline mt-2 mt-md-0">
@@ -18,15 +18,3 @@
 		</div>
 	</nav>
 </header>
-
-
-
-<!--<div class="fixed-action-btn">-->
-  <!--<a class="btn-floating btn-large red pulse">-->
-    <!--<i class="large material-icons">mode_edit</i>-->
-  <!--</a>-->
-  <!--<ul>-->
-    <!--<li><a class="btn-floating red" href="/result"><i class="material-icons">insert_chart</i></a></li>-->
-    <!--<li><a class="btn-floating green" href="/"><i class="material-icons">publish</i></a></li>-->
-  <!--</ul>-->
-<!--</div>-->

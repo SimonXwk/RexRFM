@@ -1,22 +1,17 @@
 {% extends '_base.html' %}
 {%- block title %}One Picture{%- endblock %}
 
+{% block js_optional %}
+{% include '_includes_global/_js_echarts.html' %}
+{% endblock %}
+
 {% block js_custom %}
 <script src="{{ url_for('static', filename='js/result.js') }}"></script>
+{% include '_includes_local/_js_result.html' %}
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-{% if filename %}
-
-<div class="alert alert-success" role="alert">{{ filename }} Processed Successfully !</div>
-{% else  %}
-
-<div class="alert alert-primary" role="alert">Showing All Results</div>
-{% endif %}
-</div>
-
-{{ data }}
-
-
+{% include '_includes_local/_result.html' %}
 {% endblock %}
+
+

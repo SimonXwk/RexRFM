@@ -1,0 +1,102 @@
+<script>
+
+myChart11 = echarts.init(document.getElementById('segChart'));
+
+
+
+// Set Chart option before receiving data
+option = {
+    tooltip : {
+        trigger: 'item',
+        formatter: "{a} <br/>{b} : {d}%"
+    },
+    legend: {
+        orient: 'vertical',
+        left: 'left',
+        top: 'center',
+    },
+    series : [
+        {
+            name: 'Test',
+            type: 'pie',
+            radius : '55%',
+            center: ['50%', '50%'],
+            data:[],
+            itemStyle: {
+                emphasis: {
+                    shadowBlur: 10,
+                    shadowOffsetX: 0,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
+            }
+        }
+    ]
+};
+
+myChart11.setOption(option);
+myChart11.showLoading();
+
+$.getJSON('/api/rfm/{{ filename }}').done(function (data) {
+
+	var count = data.count;
+	var segment = data.segment;
+
+	var output =[];
+
+	for (var i = 0; i < count.length; i++) {
+			output.push({
+					value: count[i],
+					name: segment[i]
+			});
+	}
+
+	console.log(segment);
+	console.log(count);
+	console.log(output);
+
+	myChart11.setOption({
+	 tooltip : {
+        trigger: 'item',
+        formatter: "{a} <br/>{b} : {d}%"
+    },
+    legend: {
+        orient: 'vertical',
+        left: 'left',
+        top: 'center',
+    },
+    series : [
+        {
+            name: 'Test',
+            type: 'pie',
+            radius : '55%',
+            center: ['50%', '50%'],
+            data:output,
+            itemStyle: {
+                emphasis: {
+                    shadowBlur: 10,
+                    shadowOffsetX: 0,
+                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+                }
+            }
+        }
+    ]
+
+	});
+
+
+
+
+
+
+
+
+
+
+	myChart11.setOption(option);
+	myChart11.hideLoading();
+
+
+
+
+})
+</script>
