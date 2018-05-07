@@ -1,40 +1,113 @@
 <script>
 
 myChart11 = echarts.init(document.getElementById('segChart'));
+let chart = myChart11;
 
+let backgroundColor = '#343a40';
+let titleColor = '#f5fab9';
+let labelColor = 'rgba(255, 255, 255, 0.3)';
+let labelLineColor = 'rgba(255, 255, 255, 0.3)';
+let itemDefaultColor = '#c23531';
+let itemshadowColor = 'rgba(0, 0, 0, 0.5)';
+let legendColor = '#ffd285'
 
 
 // Set Chart option before receiving data
 option = {
-    tooltip : {
+    backgroundColor: backgroundColor,
+    title: {
+        text: 'Segments',
+				// subtext:'...',
+        left: 'center',
+        top: 20,
+        textStyle: {
+            color: titleColor
+        }
+    },
+		tooltip : {
         trigger: 'item',
-        formatter: "{a} <br/>{b} : {d}%"
+        formatter: "{a} <br/>{b} : {c} ({d}%)"
     },
-    legend: {
-        orient: 'vertical',
-        left: 'left',
-        top: 'center',
-    },
+		toolbox: {
+				show: true,
+				showTitle: true,
+				x: "left",
+				feature: {
+					mark: { show: false },
+					saveAsImage: { show: true },
+					magicType: {
+						show: false,
+						type: ['line', 'bar', 'stack', 'tiled']
+					},
+					dataView: { show: true, readOnly: false }
+				}
+		},
+		legend: {
+    			show: true,
+					top: 'bottom',
+					left: '1%',
+					bottom: 1,
+					itemSize: 15,
+					itemGap: 10,
+					itemWidth: 25,
+					itemHeight: 14,
+					orient: 'horizontal', //'horizontal','vertical'
+					textStyle: {
+						color: legendColor
+			}
+		},
+
+    // visualMap: {
+    //     show: false,
+    //     min: 80,
+    //     max: 600,
+    //     inRange: {
+    //         colorLightness: [0, 1]
+    //     }
+    // },
     series : [
         {
-            name: 'Test',
-            type: 'pie',
+            name:'Segment',
+            type:'pie',
             radius : '55%',
             center: ['50%', '50%'],
-            data:[],
-            itemStyle: {
-                emphasis: {
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+            // roseType: 'angle',  // radius, area, angle
+            label: {
+                normal: {
+                		formatter: '{b}\n{c} ({d}%)',
+                    textStyle: {
+                        color: labelColor
+                    }
                 }
+            },
+            labelLine: {
+                normal: {
+                    lineStyle: {
+                        color: labelLineColor
+                    },
+                    smooth: 0.2,
+                    length: 10,
+                    length2: 20
+                }
+            },
+            itemStyle: {
+                normal: {
+                    // color: itemDefaultColor,
+                    shadowBlur: 200,
+                    shadowColor: itemshadowColor
+                }
+            },
+            animationType: 'scale',
+            animationEasing: 'elasticOut',
+            animationDelay: function (idx) {
+                return Math.random() * 200;
             }
         }
     ]
 };
 
-myChart11.setOption(option);
-myChart11.showLoading();
+chart.setOption(option);
+chart.showLoading();
 
 $.getJSON('/api/rfm/{{ filename }}').done(function (data) {
 
@@ -50,34 +123,20 @@ $.getJSON('/api/rfm/{{ filename }}').done(function (data) {
 			});
 	}
 
+
 	console.log(segment);
 	console.log(count);
 	console.log(output);
+	console.log(output.sort(function (a, b) { return a.value - b.value; }));
 
-	myChart11.setOption({
-	 tooltip : {
-        trigger: 'item',
-        formatter: "{a} <br/>{b} : {d}%"
-    },
-    legend: {
-        orient: 'vertical',
-        left: 'left',
-        top: 'center',
-    },
+	chart.setOption({
+		legend:{
+			show: true,
+			data:segment
+		},
     series : [
         {
-            name: 'Test',
-            type: 'pie',
-            radius : '55%',
-            center: ['50%', '50%'],
-            data:output,
-            itemStyle: {
-                emphasis: {
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)'
-                }
-            }
+            data:output
         }
     ]
 
@@ -95,8 +154,71 @@ $.getJSON('/api/rfm/{{ filename }}').done(function (data) {
 	myChart11.setOption(option);
 	myChart11.hideLoading();
 
-
-
-
 })
 </script>
+
+
+
+<!--<script>-->
+<!--var chart = new Highcharts.Chart('segChart');-->
+
+<!--// Make monochrome colors-->
+<!--var pieColors = (function () {-->
+  <!--var colors = [],-->
+    <!--base = Highcharts.getOptions().colors[0],-->
+    <!--i;-->
+
+  <!--for (i = 0; i < 10; i += 1) {-->
+    <!--// Start out with a darkened base color (negative brighten), and end-->
+    <!--// up with a much brighter color-->
+    <!--colors.push(Highcharts.Color(base).brighten((i - 3) / 7).get());-->
+  <!--}-->
+  <!--return colors;-->
+<!--}());-->
+
+
+<!--// Build the chart-->
+<!--Highcharts.chart('segChart', {-->
+  <!--chart: {-->
+    <!--plotBackgroundColor: null,-->
+    <!--plotBorderWidth: null,-->
+    <!--plotShadow: false,-->
+    <!--type: 'pie'-->
+  <!--},-->
+  <!--title: {-->
+    <!--text: 'Rex RFM Segments'-->
+  <!--},-->
+  <!--tooltip: {-->
+    <!--pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'-->
+  <!--},-->
+  <!--plotOptions: {-->
+    <!--pie: {-->
+      <!--allowPointSelect: true,-->
+      <!--cursor: 'pointer',-->
+      <!--colors: pieColors,-->
+      <!--dataLabels: {-->
+        <!--enabled: true,-->
+        <!--format: '<b>{point.name}</b><br>{point.percentage:.1f} %',-->
+        <!--distance: -50,-->
+        <!--filter: {-->
+          <!--property: 'percentage',-->
+          <!--operator: '>',-->
+          <!--value: 4-->
+        <!--}-->
+      <!--}-->
+    <!--}-->
+  <!--},-->
+  <!--series: [{-->
+    <!--name: 'Share',-->
+    <!--data: [-->
+      <!--{ name: 'Chrome', y: 61.41 },-->
+      <!--{ name: 'Internet Explorer', y: 11.84 },-->
+      <!--{ name: 'Firefox', y: 10.85 },-->
+      <!--{ name: 'Edge', y: 4.67 },-->
+      <!--{ name: 'Safari', y: 4.18 },-->
+      <!--{ name: 'Other', y: 7.05 }-->
+    <!--]-->
+  <!--}]-->
+<!--});-->
+
+<!--</script>-->
